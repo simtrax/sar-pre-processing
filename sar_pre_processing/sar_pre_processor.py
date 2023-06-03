@@ -586,7 +586,7 @@ class SARPreProcessor(PreProcessor):
                        '" -Pname_change_vh_single="' + name_change_vh_single + \
                        '" -Pname_change_vv_norm_single="' + name_change_vv_norm_single + \
                        '" -Pname_change_vh_norm_single="' + name_change_vh_norm_single + \
-                       '" -Plist_bands_single_speckle_filter="' + list_bands_single_speckle_filter + '" -c 2G -x'
+                       '" -Plist_bands_single_speckle_filter="' + list_bands_single_speckle_filter + '"-Pgeotiff.compression=DEFLATE -Pgeotiff.bigtiff=true -c 2G -x'
                 return_code = subprocess.call(call, shell=True)
                 logging.info(return_code)
                 logging.info(datetime.now())
