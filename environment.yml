@@ -12,7 +12,3 @@ dependencies:
   - pyproj>=2.2
   - xarray
   - gdal>=3.0.4
-  - pip
-  - pip:
-    - asf-search
-    - pandas
