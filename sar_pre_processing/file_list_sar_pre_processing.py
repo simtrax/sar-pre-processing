@@ -5,6 +5,8 @@ Create List of SAR data which will be processed by sar_pre_processer module
 import logging
 import os
 import yaml
+import sys
+import re
 import fnmatch
 import pyproj
 import zipfile
@@ -73,7 +75,8 @@ class SARList(object):
             else:
                 pass
 
-        logging.info('Number of found files for year %s: %s' %(year, len(filelist_new)))
+        logging.info('Number of found files for year %s: %s' %
+                     (year, len(filelist_new)))
         return filelist_new
 
     def _check_location(self, file, location, output_folder):
@@ -85,7 +88,8 @@ class SARList(object):
         THIS VERSION FINALLY WITH INTERSECT OF POLYGONS OGR
         """
 
-        filepath, filename, fileshortname, extension = self._decomposition_filename(file)
+        filepath, filename, fileshortname, extension = self._decomposition_filename(
+            file)
 
         # Get metadata
         # Path to product.xml-file within zipped S1 image
@@ -106,16 +110,25 @@ class SARList(object):
 
         # Parse the xml file
         tree = etree.parse(xml_file_extracted)
+
         root = tree.getroot()
 
-        # Access corners for Sentinel-1
-        # Get bounding box
-        for tiepoint in root.iter('{http://www.google.com/kml/ext/2.2}LatLonQuad'):
-            child_list = tiepoint.getchildren()
-        bounding_box = child_list[0].text
+        # Define the namespace for 'gx'
+        namespaces = {'gx': 'http://www.google.com/kml/ext/2.2'}
+
+        # Find the <coordinates> element within the <gx:LatLonQuad> tag
+        coordinates_element = root.find(
+            ".//gx:LatLonQuad/coordinates", namespaces=namespaces)
+
+        if coordinates_element is not None:
+            bounding_box = coordinates_element.text
+        else:
+            sys.exit("Coordinates could not be extracted from KML file")
+
         bounding_box_list = bounding_box.split(' ')
         # WKT requires that last point = first point in polygon, add first point
-        wkt_image1 = 'POLYGON((' + bounding_box + ' ' + bounding_box_list[0] + '))'
+        wkt_image1 = 'POLYGON((' + bounding_box + ' ' + \
+            bounding_box_list[0] + '))'
         # WKT requires other use of comma and spaces in coordinate list
         wkt_image2 = wkt_image1.replace(' ', ';')
         wkt_image3 = wkt_image2.replace(',', ' ')
@@ -126,9 +139,12 @@ class SARList(object):
         locationEPSG = pyproj.Proj('+init=EPSG:4326')
 
         # Transform coordinates of location into file coordinates
-        upper_left_x,  upper_left_y = pyproj.transform(locationEPSG, datasetEPSG, location[0], location[1])
-        lower_right_x, lower_right_y = pyproj.transform(locationEPSG, datasetEPSG, location[2], location[3])
-        wkt_location = 'POLYGON((' + str(upper_left_x) + ' ' + str(upper_left_y) + ',' + str(upper_left_x) + ' ' + str(lower_right_y) + ',' + str(lower_right_x) + ' ' + str(lower_right_y) + ',' + str(lower_right_x) + ' ' + str(upper_left_y) + ',' + str(upper_left_x) + ' ' + str(upper_left_y) + '))'
+        upper_left_x,  upper_left_y = pyproj.transform(
+            locationEPSG, datasetEPSG, location[0], location[1])
+        lower_right_x, lower_right_y = pyproj.transform(
+            locationEPSG, datasetEPSG, location[2], location[3])
+        wkt_location = 'POLYGON((' + str(upper_left_x) + ' ' + str(upper_left_y) + ',' + str(upper_left_x) + ' ' + str(lower_right_y) + ',' + str(
+            lower_right_x) + ' ' + str(lower_right_y) + ',' + str(lower_right_x) + ' ' + str(upper_left_y) + ',' + str(upper_left_x) + ' ' + str(upper_left_y) + '))'
 
         # Use ogr to check if polygon contained
         poly_location = ogr.CreateGeometryFromWkt(wkt_location)
@@ -147,7 +163,8 @@ class SARList(object):
             if contained is False:
                 continue
             filelist_new.append(file)
-        logging.info('Number of found files containing area of interest: %s' % (len(filelist_new)))
+        logging.info(
+            'Number of found files containing area of interest: %s' % (len(filelist_new)))
         return filelist_new
 
     def _double_processed(self, filelist):
@@ -166,7 +183,8 @@ class SARList(object):
                 file)
 
             try:
-                filepath1, filename1, fileshortname1, extension1 = self._decomposition_filename(filelist[index+1])
+                filepath1, filename1, fileshortname1, extension1 = self._decomposition_filename(
+                    filelist[index+1])
             except IndexError:
                 filename1 = ''
                 pass
@@ -175,7 +193,8 @@ class SARList(object):
                 if index == 0:
                     filename2 = ''
                 else:
-                    filepath2, filename2, fileshortname2, extension2 = self._decomposition_filename(filelist[index-1])
+                    filepath2, filename2, fileshortname2, extension2 = self._decomposition_filename(
+                        filelist[index-1])
             except IndexError:
                 filename2 = ''
                 pass
@@ -184,7 +203,8 @@ class SARList(object):
                 filelist_double_processed.append(file)
             else:
                 filelist_new.append(file)
-        logging.info('Number of found files that were double processed: %s' % (len(filelist_double_processed)/2.))
+        logging.info('Number of found files that were double processed: %s' % (
+            len(filelist_double_processed)/2.))
 
         filelist_end = self._check_timestamp(filelist_double_processed)
         filelist_end = filelist_end + filelist_new
@@ -197,7 +217,8 @@ class SARList(object):
         check processing time stamp of input files and return file with newer time stamp
         """
 
-        filepath, filename, fileshortname, extension = self._decomposition_filename(file)
+        filepath, filename, fileshortname, extension = self._decomposition_filename(
+            file)
         filepath1, filename1, fileshortname1, extension1 = self._decomposition_filename(
             file1)
 
@@ -269,6 +290,9 @@ class SARList(object):
                 filelist_new.append(file_timestamp)
         return filelist_new
 
+    def check_date(filename, filename2):
+        print(filename)
+
     def _border_control(self, filelist):
         """
         Area of interest contained in two tiles of same swath
@@ -282,7 +306,8 @@ class SARList(object):
                 file)
 
             try:
-                filepath1, filename1, fileshortname1, extension1 = self._decomposition_filename(filelist[index+1])
+                filepath1, filename1, fileshortname1, extension1 = self._decomposition_filename(
+                    filelist[index+1])
             except IndexError:
                 filename1 = ''
                 pass
@@ -291,7 +316,8 @@ class SARList(object):
                 if index == 0:
                     filename2 = ''
                 else:
-                    filepath2, filename2, fileshortname2, extension2 = self._decomposition_filename(filelist[index-1])
+                    filepath2, filename2, fileshortname2, extension2 = self._decomposition_filename(
+                        filelist[index-1])
             except IndexError:
                 filename2 = ''
                 pass
@@ -300,8 +326,22 @@ class SARList(object):
                 filelist_border_control.append(file)
             else:
                 filelist_new.append(file)
-        logging.info('Number of found files with border issues: %s' % (len(filelist_border_control)))
+        logging.info('Number of found files with border issues: %s' %
+                     (len(filelist_border_control)))
 
+        # seen_dates = set()
+        # unique_files = []
+
+        # for path in filelist:
+        #     # Extract date using regular expression
+        #     match = re.search(r"(\d{8})T", path)
+        #     if match:
+        #         date = match.group(1)
+        #         if date not in seen_dates:
+        #             seen_dates.add(date)
+        #             unique_files.append(path)
+
+        # return unique_files, []
         return filelist_new, filelist_border_control
 
     def create_list(self, **kwargs):
@@ -334,11 +374,14 @@ class SARList(object):
                 upper_left_y = self.config.region['ul']['lat']
                 upper_left_x = self.config.region['ul']['lon']
                 lower_right_x = self.config.region['lr']['lon']
-                area = self._get_area(lower_right_y, upper_left_y, upper_left_x, lower_right_x)
+                # area = self._get_area(
+                #     lower_right_y, upper_left_y, upper_left_x, lower_right_x)
                 # todo: how is it with coordinates that go across the datum line ??
 
-                location = [upper_left_x, upper_left_y, lower_right_x, lower_right_y]
-                filelist = self._contain_area_of_interest(filelist, location, self.config.input_folder)
+                location = [upper_left_x, upper_left_y,
+                            lower_right_x, lower_right_y]
+                filelist = self._contain_area_of_interest(
+                    filelist, location, self.config.input_folder)
         except AttributeError:
             logging.info('area of interest not specified')
 
@@ -349,4 +392,3 @@ class SARList(object):
         filelist = self._border_control(filelist)
 
         return filelist
-
